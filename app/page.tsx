@@ -10,6 +10,17 @@ import { Badge } from '@/components/ui/badge';
 
 const dayNames = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
 
+// ใช้ timezone เดียวกับ dashboard (Asia/Bangkok)
+const toThailandDateString = (date: Date): string => {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(date);
+};
+
 export default function HomePage() {
   const { data: weeklyData, isLoading: schedulesLoading, error: schedulesError } = useWeeklySchedules();
   const { data: banners, isLoading: bannersLoading } = useBanners();
@@ -23,14 +34,14 @@ export default function HomePage() {
     sunday.setDate(today.getDate() - dayOfWeek);
     sunday.setHours(0, 0, 0, 0);
     
-    const dates: { date: string; dayName: string; dateObj: Date }[] = [];
+    const dates: { date: string; dayName: string }[] = [];
     for (let i = 0; i < 7; i++) {
       const date = new Date(sunday);
       date.setDate(sunday.getDate() + i);
       dates.push({
-        date: date.toISOString().split('T')[0],
+        // ใช้ key แบบเดียวกับ useWeeklySchedules (Asia/Bangkok)
+        date: toThailandDateString(date),
         dayName: dayNames[i],
-        dateObj: date,
       });
     }
     return dates;
@@ -301,7 +312,8 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="space-y-2 sm:space-y-3 md:space-y-4 max-w-5xl mx-auto px-2 sm:px-4">
-            {weekDates.map(({ date, dayName, dateObj }, index) => {
+            {weekDates.map(({ date, dayName }, index) => {
+              const dateObj = new Date(date + 'T00:00:00+07:00');
               const schedules = Array.isArray(weeklyData?.[date]) ? weeklyData[date] : [];
               // Filter pets that have schedules with timeSlots (added by admin)
               const petsWithSchedules = schedules
@@ -318,7 +330,7 @@ export default function HomePage() {
                   item.pet?.id && index === self.findIndex(i => i.pet?.id === item.pet?.id)
                 ) as Array<{ pet: any; schedule: any }>;
 
-              const isToday = dateObj.toDateString() === new Date().toDateString();
+              const isToday = toThailandDateString(new Date()) === date;
               const dayNumber = dateObj.getDate();
               const month = dateObj.getMonth() + 1;
 

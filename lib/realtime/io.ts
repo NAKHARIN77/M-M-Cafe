@@ -10,6 +10,12 @@ export function getIO(): SocketIOServer | null {
   return globalThis.__io ?? null;
 }
 
+export function emitGlobal<E extends keyof RealtimeEvents>(event: E, payload: RealtimeEvents[E]) {
+  const io = getIO();
+  if (!io) return;
+  io.emit(event as string, payload);
+}
+
 export function emitToAdmins<E extends keyof RealtimeEvents>(
   event: E,
   payload: RealtimeEvents[E]

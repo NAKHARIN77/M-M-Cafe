@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getOrderById, updateOrderStatus } from '@/lib/db/db';
 import { verifyToken, getTokenFromRequest } from '@/lib/auth/jwt';
 import type { OrderStatus } from '@/types';
-import { emitToAdmins, emitToUser } from '@/lib/realtime/io';
+import { emitGlobal, emitToAdmins, emitToUser } from '@/lib/realtime/io';
 
 export const runtime = 'nodejs';
 
@@ -41,6 +41,7 @@ export async function PATCH(
       );
     }
     
+    emitGlobal('order:updated', { order });
     emitToAdmins('order:updated', { order });
     emitToUser(order.userId, 'order:updated', { order });
 

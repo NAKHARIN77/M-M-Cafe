@@ -3,7 +3,7 @@ import { getAllOrders, createOrder } from '@/lib/db/db';
 import { verifyToken, getTokenFromRequest } from '@/lib/auth/jwt';
 import { getMenuItemById } from '@/lib/db/db';
 import type { OrderItem } from '@/types';
-import { emitToAdmins, emitToUser } from '@/lib/realtime/io';
+import { emitGlobal, emitToAdmins, emitToUser } from '@/lib/realtime/io';
 
 export const runtime = 'nodejs';
 
@@ -110,6 +110,7 @@ export async function POST(request: NextRequest) {
       status: 'pending',
     });
 
+    emitGlobal('order:created', { order });
     emitToAdmins('order:created', { order });
     emitToUser(payload.userId, 'order:created', { order });
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useReviews, useAverageRating, useCreateReview } from '@/lib/api/queries/reviews';
+import { useUserOrders } from '@/lib/api/queries/orders';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,19 +9,28 @@ import { Textarea } from '@/components/ui/textarea';
 import { useState } from 'react';
 import { Star } from 'lucide-react';
 import { getApiErrorMessage } from '@/lib/api/error';
+import { useSearchParams } from 'next/navigation';
 
 export default function ReviewsPage() {
   const { data: reviews, isLoading: reviewsLoading, error: reviewsError } = useReviews();
   const { data: ratingData, isLoading: ratingLoading, error: ratingError } = useAverageRating();
   const { mutate: createReview, isPending, error: createError } = useCreateReview();
   const { isAuthenticated } = useAuthStore();
+  const { data: orders, isLoading: ordersLoading, error: ordersError } = useUserOrders();
+  const searchParams = useSearchParams();
+  const orderId = searchParams.get('orderId');
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
 
+  const hasOrders = !!orders && orders.length > 0;
+  // Treat "paid" as confirmed by admin in current flow.
+  const canCreateReview =
+    isAuthenticated && !!orders && orders.some((o) => o.status === 'paid' || o.status === 'completed');
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isAuthenticated) {
-      alert('กรุณาเข้าสู่ระบบก่อนให้รีวิว');
+    if (!canCreateReview) {
+      alert('คุณยังไม่สามารถให้รีวิวได้: ต้องมีออเดอร์และสถานะถูกยืนยันแล้วหรือเสร็จสิ้น');
       return;
     }
     createReview(
@@ -38,7 +48,7 @@ export default function ReviewsPage() {
     );
   };
 
-  if (reviewsLoading || ratingLoading) {
+  if (reviewsLoading || ratingLoading || (isAuthenticated && ordersLoading)) {
     return (
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12">
         <div className="flex items-center justify-center min-h-[400px]">
@@ -48,7 +58,7 @@ export default function ReviewsPage() {
     );
   }
 
-  if (reviewsError || ratingError) {
+  if (reviewsError || ratingError || ordersError) {
     return (
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12">
         <div className="flex items-center justify-center min-h-[400px]">
@@ -96,7 +106,27 @@ export default function ReviewsPage() {
         </Card>
       )}
 
-      {isAuthenticated && (
+      {isAuthenticated && !canCreateReview && (
+        <Card className="mb-5 sm:mb-6 md:mb-8 border-2 border-border/50 rounded-2xl sm:rounded-3xl glass fade-in">
+          <CardHeader>
+            <CardTitle className="text-lg sm:text-xl text-primary">ไม่สามารถเขียนรีวิวได้</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
+              คุณสามารถเขียนรีวิวได้เมื่อมีประวัติการสั่งซื้อ และออเดอร์ถูกแอดมินยืนยันแล้ว (ชำระแล้ว) หรือเสร็จสิ้น
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!hasOrders ? (
+              <p className="text-sm text-muted-foreground">ตอนนี้ยังไม่มีออเดอร์ในระบบของคุณ</p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                ตอนนี้ออเดอร์ของคุณยังอยู่ในสถานะที่ยังไม่ยืนยัน กรุณารอแอดมินยืนยันก่อน
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {canCreateReview && (
         <Card className="mb-5 sm:mb-6 md:mb-8 border-2 border-border/50 rounded-2xl sm:rounded-3xl glass fade-in">
           {createError && (
             <div className="p-4 mb-4 bg-destructive/10 border border-destructive/20 rounded-lg">
@@ -107,6 +137,11 @@ export default function ReviewsPage() {
           )}
           <CardHeader>
             <CardTitle className="text-lg sm:text-xl text-primary">เขียนรีวิว</CardTitle>
+            {orderId && (
+              <CardDescription className="text-xs sm:text-sm">
+                ออเดอร์ของคุณได้รับการยืนยันแล้ว คุณสามารถให้รีวิวได้เลย (Order ID: {orderId.slice(0, 8)})
+              </CardDescription>
+            )}
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">

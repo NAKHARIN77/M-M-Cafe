@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { useQueryClient } from '@tanstack/react-query';
 import { connectSocket } from '@/lib/realtime/client';
+import type { Order } from '@/types';
 
 const statusLabels: Record<string, string> = {
   pending: 'รอชำระเงิน',
@@ -45,12 +46,26 @@ export default function OrdersPage() {
     };
 
     socket.on('order:created', refresh);
-    socket.on('order:updated', refresh);
+    const handleOrderUpdated = ({ order }: { order: Order }) => {
+      refresh();
+
+      // After admin confirms/completes an order, redirect user to review page (once per order).
+      if (!user || user.role === 'admin') return;
+      if (order.userId !== user.id) return;
+      if (order.status !== 'paid' && order.status !== 'completed') return;
+
+      const key = `review_redirected:${order.id}`;
+      if (typeof window !== 'undefined' && window.sessionStorage.getItem(key)) return;
+      if (typeof window !== 'undefined') window.sessionStorage.setItem(key, '1');
+
+      router.push(`/reviews?orderId=${encodeURIComponent(order.id)}`);
+    };
+    socket.on('order:updated', handleOrderUpdated);
     return () => {
       socket.off('order:created', refresh);
-      socket.off('order:updated', refresh);
+      socket.off('order:updated', handleOrderUpdated);
     };
-  }, [queryClient]);
+  }, [queryClient, router, token, user]);
 
   if (user?.role === 'admin') {
     return null;

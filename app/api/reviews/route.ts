@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllReviews, createReview } from '@/lib/db/db';
 import { verifyToken, getTokenFromRequest } from '@/lib/auth/jwt';
-import { findUserById } from '@/lib/db/db';
+import { findUserById, getAllOrders } from '@/lib/db/db';
+
+export const runtime = 'nodejs';
 
 export async function GET() {
   try {
@@ -40,6 +42,23 @@ export async function POST(request: NextRequest) {
     const payload = await verifyToken(token);
     if (!payload) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    const orders = await getAllOrders(payload.userId);
+    if (!orders || orders.length === 0) {
+      return NextResponse.json(
+        { error: 'คุณต้องมีประวัติการสั่งซื้อก่อนจึงจะสามารถให้รีวิวได้' },
+        { status: 403 }
+      );
+    }
+
+    // Treat "paid" as confirmed by admin in current order flow.
+    const eligible = orders.some((o) => o.status === 'paid' || o.status === 'completed');
+    if (!eligible) {
+      return NextResponse.json(
+        { error: 'ออเดอร์ของคุณยังไม่ได้รับการยืนยันหรือเสร็จสิ้น จึงยังไม่สามารถให้รีวิวได้' },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();

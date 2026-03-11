@@ -182,4 +182,4 @@ export default function AdminBannersPage() {
     </div>
   );
 }
-// restrict cart access to logged-in users and add login redirect
+// restrict cart access to logged-in users and add login redirect v2 
